@@ -13,5 +13,5 @@
     "mineflayer": "^4.25.0",
     "mineflayer-pathfinder": "^2.4.5"
   },
-  "description": ""
+  "description": "마인크래프트를 플레이하며 생중계하는 AI 봇입니다."
 }
