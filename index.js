@@ -1,9 +1,13 @@
 const mineflayer = require('mineflayer')
-const BOT_CONFIG = {
+const options = {
   host: 'localhost',
-  port: 60869,
+  port: 53484,
   username: 'CraftOS',
-  version: '1.21.5',  // 서버와 동일한 버전
-  auth: 'offline'  // 오프라인 모드 명시
+  version: '1.21.4',
 }
-const bot = mineflayer.createBot(BOT_CONFIG)
+const bot = mineflayer.createBot(options)
+
+const welcome = () => {
+  bot.chat('안녕하세요!')
+}
+bot.once('spawn', welcome)
