@@ -1,6 +1,7 @@
 const mineflayer = require('mineflayer')
 const { Vec3 } = require('vec3')
 const { pathfinder, Movements, goals } = require('mineflayer-pathfinder')
+const GPTHandler = require('./gpt')
 
 const options = {
   host: 'localhost',
@@ -15,6 +16,9 @@ let targetPlayer = null
 const FOLLOW_DISTANCE = 2
 const SPRINT_DISTANCE = 3 // 이 거리 이상 멀어지면 뛰기 시작
 const JUMP_HEIGHT = 1 // 자동 점프를 시작할 높이 차이
+
+// GPT 핸들러 초기화
+const gptHandler = new GPTHandler()
 
 // 이동 속도 설정
 const MOVEMENT_SPEED = {
@@ -59,49 +63,61 @@ const createBot = () => {
     bot.pathfinder.setMovements(movements)
     
     // 키보드 입력 처리
-    process.stdin.on('data', (data) => {
-      const key = data.toString().trim().toLowerCase()
+    process.stdin.on('data', async (data) => {
+      const input = data.toString().trim().toLowerCase()
       
-      switch(key) {
-        case 'w':
-          bot.setControlState('forward', true)
-          setTimeout(() => bot.setControlState('forward', false), 100)
-          break
-        case 's':
-          bot.setControlState('back', true)
-          setTimeout(() => bot.setControlState('back', false), 100)
-          break
-        case 'a':
-          bot.setControlState('left', true)
-          setTimeout(() => bot.setControlState('left', false), 100)
-          break
-        case 'd':
-          bot.setControlState('right', true)
-          setTimeout(() => bot.setControlState('right', false), 100)
-          break
-        case ' ': // 스페이스바로 점프
-          bot.setControlState('jump', true)
-          setTimeout(() => bot.setControlState('jump', false), 100)
-          break
-        case 'f':
-          isFollowing = !isFollowing
-          if (isFollowing) {
-            const players = Object.keys(bot.players)
-            if (players.length > 0) {
-              targetPlayer = bot.players[players[0]].username
-              console.log(`${targetPlayer}를 따라갑니다.`)
+      // 명령어 처리
+      if (input.startsWith('/')) {
+        const command = input.slice(1).toLowerCase()
+        switch (command) {
+          case 'help':
+            console.log(`
+              사용 가능한 명령어:
+              /help - 도움말 표시
+              /reset - 대화 초기화
+              /follow - 플레이어 따라가기
+              /stop - 따라가기 중지
+              /history - 대화 기록 보기
+              /clear - 대화 기록 삭제
+            `)
+            break
+          case 'reset':
+            console.log(gptHandler.resetConversation())
+            break
+          case 'follow':
+            if (input.split(' ').length > 1) {
+              targetPlayer = input.split(' ')[1]
+              console.log(`${targetPlayer}님을 따라가기 시작합니다.`)
             } else {
-              console.log('따라갈 플레이어가 없습니다.')
-              isFollowing = false
+              console.log('따라갈 플레이어 이름을 입력해주세요.')
             }
-          } else {
-            console.log('따라가기를 중지합니다.')
+            break
+          case 'stop':
             targetPlayer = null
-            bot.setControlState('sprint', false)
-            bot.setControlState('jump', false)
             bot.pathfinder.stop()
-          }
-          break
+            console.log('따라가기를 중지했습니다.')
+            break
+          case 'history':
+            console.log(gptHandler.showConversationHistory())
+            break
+          case 'clear':
+            console.log(gptHandler.deleteConversationHistory())
+            break
+          default:
+            console.log('알 수 없는 명령어입니다. /help를 입력하여 사용 가능한 명령어를 확인하세요.')
+        }
+        return
+      }
+
+      // 일반 대화 처리
+      if (input) {
+        try {
+          const response = await gptHandler.chat(input)
+          console.log('봇:', response)
+          bot.chat(response) // 인게임 채팅으로도 응답
+        } catch (error) {
+          console.error('GPT 응답 생성 중 오류:', error)
+        }
       }
     })
   })
@@ -110,7 +126,7 @@ const createBot = () => {
   bot.on('physicsTick', () => {
     if (isFollowing && targetPlayer) {
       const player = bot.players[targetPlayer]
-      if (!player) {
+      if (!player || !player.entity) {
         console.log('대상 플레이어를 찾을 수 없습니다.')
         isFollowing = false
         bot.setControlState('sprint', false)
