@@ -1,7 +1,7 @@
 const mineflayer = require('mineflayer')
 const options = {
   host: 'localhost',
-  port: 53484,
+  port: 12345,
   username: 'CraftOS',
   version: '1.21.4',
 }
